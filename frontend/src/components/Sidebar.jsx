@@ -17,7 +17,7 @@ export const Sidebar = ({ activeTab, onSelectTab }) => {
 
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'imports', label: 'Imports', icon: UploadCloud },
+    { id: 'imports', label: 'Files', icon: UploadCloud },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'team', label: 'Team', icon: Users },
     { id: 'settings', label: 'Settings', icon: Settings },

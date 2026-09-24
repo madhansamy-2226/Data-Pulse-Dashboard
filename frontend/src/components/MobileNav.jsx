@@ -4,7 +4,7 @@ import { Home, UploadCloud, FileText, User } from 'lucide-react';
 export const MobileNav = ({ activeTab, onSelectTab }) => {
   const tabs = [
     { id: 'overview', label: 'Home', icon: Home },
-    { id: 'imports', label: 'Imports', icon: UploadCloud },
+    { id: 'imports', label: 'Files', icon: UploadCloud },
     { id: 'reports', label: 'Reports', icon: FileText },
     { id: 'profile', label: 'Profile', icon: User },
   ];

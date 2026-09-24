@@ -103,13 +103,13 @@ export const HeaderBar = ({
           </div>
         </div>
 
-        {/* Action Buttons: Import CSV & Export PDF */}
+        {/* Action Buttons: Import File & Export File */}
         <div className="hidden sm:flex items-center gap-2.5">
           <button
             onClick={onOpenUpload}
             className="px-4 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all active:scale-95 shadow-sm"
           >
-            Import CSV
+            Import File
           </button>
 
           <button
@@ -134,7 +134,7 @@ export const HeaderBar = ({
                 <span>Exporting...</span>
               </>
             ) : (
-              <span>Export PDF</span>
+              <span>Export File</span>
             )}
           </button>
         </div>
