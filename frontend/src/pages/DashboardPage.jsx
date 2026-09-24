@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Navbar } from '../components/Navbar';
+import { Sidebar } from '../components/Sidebar';
+import { HeaderBar } from '../components/HeaderBar';
 import { KpiCards } from '../components/KpiCards';
-import { RevenueTrendChart } from '../components/RevenueTrendChart';
-import { CategoryChart } from '../components/CategoryChart';
-import { TopProductsTable } from '../components/TopProductsTable';
-import { FilterBar } from '../components/FilterBar';
+import { RevenueComparisonChart } from '../components/RevenueComparisonChart';
+import { TopCategoriesWidget } from '../components/TopCategoriesWidget';
+import { RecentImportsWidget } from '../components/RecentImportsWidget';
+import { ScheduledReportsWidget } from '../components/ScheduledReportsWidget';
 import { FileUploadModal } from '../components/FileUploadModal';
 import { analyticsApi } from '../api/analytics';
-import { UploadCloud, Sparkles, Database, CheckCircle2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 
 export const DashboardPage = () => {
-  const { isAnalyst } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
 
   // Filters State
   const [filters, setFilters] = useState({
-    preset: 'all',
+    preset: '90',
     dataset_id: '',
     category: 'all',
     region: 'all',
@@ -30,9 +30,8 @@ export const DashboardPage = () => {
   const [summary, setSummary] = useState(null);
   const [trends, setTrends] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [topProducts, setTopProducts] = useState([]);
   const [filterOptions, setFilterOptions] = useState({ categories: [], regions: [] });
-  const [datasets, setDatasets] = useState([]);
+  const [importJobs, setImportJobs] = useState([]);
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -46,21 +45,19 @@ export const DashboardPage = () => {
         end_date: filters.end_date || undefined,
       };
 
-      const [summaryRes, trendsRes, catRes, prodRes, optRes, dataRes] = await Promise.all([
+      const [summaryRes, trendsRes, catRes, optRes, jobsRes] = await Promise.all([
         analyticsApi.getSummary(queryParams),
         analyticsApi.getTrends(queryParams),
         analyticsApi.getCategories(queryParams),
-        analyticsApi.getTopProducts(queryParams),
         analyticsApi.getFilters(),
-        analyticsApi.getDatasets(),
+        analyticsApi.getJobHistory(),
       ]);
 
       setSummary(summaryRes);
       setTrends(trendsRes);
       setCategories(catRes);
-      setTopProducts(prodRes);
       setFilterOptions(optRes);
-      setDatasets(dataRes.results || dataRes || []);
+      setImportJobs(jobsRes.results || jobsRes || []);
     } catch (err) {
       console.error('Failed to fetch dashboard metrics:', err);
     } finally {
@@ -72,86 +69,127 @@ export const DashboardPage = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleRefreshCache = async () => {
+  const handleExportPDF = async () => {
     try {
-      setIsRefreshing(true);
-      await analyticsApi.clearCache();
-      await fetchDashboardData();
+      setIsExporting(true);
+      setExportSuccess(false);
+
+      const res = await analyticsApi.exportPDF({
+        dataset_id: filters.dataset_id || undefined,
+        filters: {
+          category: filters.category !== 'all' ? filters.category : undefined,
+          region: filters.region !== 'all' ? filters.region : undefined,
+          start_date: filters.start_date || undefined,
+          end_date: filters.end_date || undefined,
+        },
+      });
+
+      const reportId = res.report.id;
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await analyticsApi.getReportStatus(reportId);
+          if (statusRes.status === 'COMPLETED') {
+            clearInterval(pollInterval);
+            setIsExporting(false);
+            setExportSuccess(true);
+            setTimeout(() => setExportSuccess(false), 4000);
+            await analyticsApi.downloadPDF(reportId, statusRes.file_name);
+          } else if (statusRes.status === 'FAILED') {
+            clearInterval(pollInterval);
+            setIsExporting(false);
+            alert(`PDF Generation failed: ${statusRes.error_message}`);
+          }
+        } catch (err) {
+          clearInterval(pollInterval);
+          setIsExporting(false);
+        }
+      }, 1500);
     } catch (err) {
-      console.error('Failed to clear cache:', err);
-    } finally {
-      setIsRefreshing(false);
+      setIsExporting(false);
+      alert('Failed to initiate PDF export.');
     }
   };
 
-  const hasData = summary && parseInt(summary.total_orders, 10) > 0;
+  const handleDownloadLatestReport = async () => {
+    try {
+      setIsExporting(true);
+      // Trigger a fresh PDF compilation and download
+      await handleExportPDF();
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
-      <Navbar
-        onOpenUpload={() => setIsUploadOpen(true)}
-        onRefreshCache={handleRefreshCache}
-        isRefreshing={isRefreshing}
+    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col md:flex-row">
+      {/* Sidebar Navigation */}
+      <Sidebar
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'imports') setIsUploadOpen(true);
+        }}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Header Title Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Sales Analytics Dashboard</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Real-time aggregation layer with Redis-cached PostgreSQL backend
-            </p>
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col justify-between space-y-6">
+        <div className="space-y-6">
+          {/* Top Header Bar with Filter Pills & Action Buttons */}
+          <HeaderBar
+            title={activeTab === 'overview' ? 'Overview' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            filters={filters}
+            onFilterChange={setFilters}
+            filterOptions={filterOptions}
+            onOpenUpload={() => setIsUploadOpen(true)}
+            onExportPDF={handleExportPDF}
+            isExporting={isExporting}
+            exportSuccess={exportSuccess}
+          />
+
+          {/* 4 KPI Summary Cards */}
+          <KpiCards
+            summary={summary}
+            loading={loading}
+            importJobs={importJobs}
+          />
+
+          {/* Middle Row: Revenue Comparison Chart & Top Categories */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7">
+              <RevenueComparisonChart data={trends} loading={loading} />
+            </div>
+            <div className="lg:col-span-5">
+              <TopCategoriesWidget categories={categories} loading={loading} />
+            </div>
+          </div>
+
+          {/* Bottom Row: Recent Imports & Scheduled Reports */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-7">
+              <RecentImportsWidget
+                importJobs={importJobs}
+                onViewAll={() => setIsUploadOpen(true)}
+                loading={loading}
+              />
+            </div>
+            <div className="lg:col-span-5">
+              <ScheduledReportsWidget
+                onDownloadLatest={handleDownloadLatestReport}
+                isDownloading={isExporting}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Global Filter Bar */}
-        <FilterBar
-          filters={filters}
-          onFilterChange={setFilters}
-          filterOptions={filterOptions}
-          datasets={datasets}
-        />
-
-        {!loading && !hasData ? (
-          /* Empty state when no CSV dataset has been uploaded yet */
-          <div className="bg-slate-800/40 border-2 border-dashed border-slate-700/80 rounded-2xl p-12 text-center my-8">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
-              <Database className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-white mb-2">No Sales Datasets Ingested Yet</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mb-6">
-              Upload a sales CSV to trigger the asynchronous Celery pipeline (chunk validation, error reporting, and indexed PostgreSQL insertion).
-            </p>
-
-            {isAnalyst && (
-              <button
-                onClick={() => setIsUploadOpen(true)}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95"
-              >
-                <UploadCloud className="w-4 h-4" />
-                <span>Upload Sample CSV</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* KPI Cards */}
-            <KpiCards summary={summary} loading={loading} />
-
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RevenueTrendChart data={trends} loading={loading} />
-              <CategoryChart data={categories} loading={loading} />
-            </div>
-
-            {/* Top Products Table */}
-            <TopProductsTable products={topProducts} loading={loading} />
-          </>
-        )}
+        {/* Subtle Footer Note */}
+        <div className="pt-4 border-t border-[#1a2234] flex items-center justify-between text-[11px] text-slate-500">
+          <span>SalesPulse Analytics Engine v1.0.0</span>
+          <span>Sample data for illustration</span>
+        </div>
       </main>
 
-      {/* Upload CSV Modal */}
+      {/* CSV File Upload Modal */}
       <FileUploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}

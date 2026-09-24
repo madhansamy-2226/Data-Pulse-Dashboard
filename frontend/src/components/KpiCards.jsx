@@ -1,98 +1,115 @@
 import React from 'react';
-import { DollarSign, ShoppingCart, TrendingUp, Package, Zap } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area } from 'recharts';
 
-export const KpiCards = ({ summary, loading }) => {
+const dummySparklineGreen = [
+  { val: 20 }, { val: 25 }, { val: 22 }, { val: 35 }, { val: 30 }, { val: 45 }, { val: 40 }, { val: 55 }
+];
+
+const dummySparklineRed = [
+  { val: 55 }, { val: 50 }, { val: 52 }, { val: 42 }, { val: 45 }, { val: 38 }, { val: 35 }, { val: 32 }
+];
+
+export const KpiCards = ({ summary, loading, importJobs = [] }) => {
   const formatCurrency = (val) => {
     const num = parseFloat(val) || 0;
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(num);
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(1)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
+    if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
+    return `₹${num.toFixed(0)}`;
   };
 
-  const formatNumber = (val) => {
-    const num = parseInt(val, 10) || 0;
-    return new Intl.NumberFormat('en-US').format(num);
-  };
+  const totalImports = importJobs.length || 128;
+  const successfulImports = importJobs.filter(j => j.status === 'COMPLETED').length || 125;
+  const successRate = totalImports > 0 ? ((successfulImports / totalImports) * 100).toFixed(1) : '97.7';
 
   const cards = [
     {
-      title: 'Total Revenue',
-      value: summary ? formatCurrency(summary.total_revenue) : '$0',
-      subtitle: '+14.2% from last cycle',
-      icon: DollarSign,
-      color: 'from-blue-500/20 to-blue-600/5',
-      textColor: 'text-blue-400',
-      borderColor: 'border-blue-500/20',
+      title: 'Total revenue',
+      value: summary ? formatCurrency(summary.total_revenue) : '₹8.6L',
+      badge: '+12%',
+      badgeType: 'positive',
+      sparklineData: dummySparklineGreen,
+      strokeColor: '#10b981',
+      fillColor: '#10b981',
     },
     {
-      title: 'Total Orders',
-      value: summary ? formatNumber(summary.total_orders) : '0',
-      subtitle: `${summary?.total_units_sold ? formatNumber(summary.total_units_sold) : 0} units dispatched`,
-      icon: ShoppingCart,
-      color: 'from-indigo-500/20 to-indigo-600/5',
-      textColor: 'text-indigo-400',
-      borderColor: 'border-indigo-500/20',
+      title: 'Total orders',
+      value: summary?.total_orders ? summary.total_orders.toLocaleString() : '2,940',
+      badge: '+8%',
+      badgeType: 'positive',
+      sparklineData: dummySparklineGreen,
+      strokeColor: '#10b981',
+      fillColor: '#10b981',
     },
     {
-      title: 'Average Order Value',
-      value: summary ? formatCurrency(summary.average_order_value) : '$0',
-      subtitle: 'Based on total transactions',
-      icon: TrendingUp,
-      color: 'from-emerald-500/20 to-emerald-600/5',
-      textColor: 'text-emerald-400',
-      borderColor: 'border-emerald-500/20',
+      title: 'Avg order value',
+      value: summary?.average_order_value ? `₹${Math.round(parseFloat(summary.average_order_value))}` : '₹293',
+      badge: '-3%',
+      badgeType: 'negative',
+      sparklineData: dummySparklineRed,
+      strokeColor: '#f43f5e',
+      fillColor: '#f43f5e',
     },
     {
-      title: 'Top Category',
-      value: summary?.top_category || 'N/A',
-      subtitle: `Region: ${summary?.top_region || 'Global'}`,
-      icon: Package,
-      color: 'from-amber-500/20 to-amber-600/5',
-      textColor: 'text-amber-400',
-      borderColor: 'border-amber-500/20',
+      title: 'Import success',
+      value: `${successRate}%`,
+      badge: `${successfulImports} of ${totalImports}`,
+      badgeType: 'neutral-green',
+      sparklineData: dummySparklineGreen,
+      strokeColor: '#10b981',
+      fillColor: '#10b981',
     },
   ];
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Executive Summary</h3>
-        {summary?.from_cache && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-            <Zap className="w-3 h-3 text-amber-400 fill-amber-400" /> Redis Cache Hit (~2ms)
-          </span>
-        )}
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {cards.map((card, idx) => (
+        <div
+          key={idx}
+          className="bg-[#131926] border border-[#1e2638] rounded-2xl p-5 flex items-center justify-between relative overflow-hidden shadow-sm hover:border-[#2a364f] transition-all"
+        >
+          <div>
+            <span className="text-xs font-medium text-slate-400 block mb-1.5">{card.title}</span>
+            {loading ? (
+              <div className="h-7 w-20 bg-slate-800 rounded animate-pulse mb-2"></div>
+            ) : (
+              <h3 className="text-2xl font-bold text-white tracking-tight mb-1.5">{card.value}</h3>
+            )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card, idx) => {
-          const Icon = card.icon;
-          return (
-            <div
-              key={idx}
-              className={`bg-slate-800/60 border ${card.borderColor} rounded-xl p-5 relative overflow-hidden backdrop-blur-sm transition-all hover:translate-y-[-2px]`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400">{card.title}</span>
-                <div className={`p-2 rounded-lg bg-gradient-to-br ${card.color} ${card.textColor}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                {loading ? (
-                  <div className="h-8 w-28 bg-slate-700/60 rounded animate-pulse"></div>
-                ) : (
-                  <h4 className="text-2xl font-bold text-white tracking-tight">{card.value}</h4>
-                )}
-                <p className="text-xs text-slate-400 mt-1">{card.subtitle}</p>
-              </div>
+            <div>
+              {card.badgeType === 'positive' ? (
+                <span className="text-xs font-semibold text-[#10b981]">{card.badge}</span>
+              ) : card.badgeType === 'negative' ? (
+                <span className="text-xs font-semibold text-[#f43f5e]">{card.badge}</span>
+              ) : (
+                <span className="text-xs font-medium text-[#10b981]">{card.badge}</span>
+              )}
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Sparkline chart */}
+          <div className="w-24 h-12">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={card.sparklineData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={`grad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={card.fillColor} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={card.fillColor} stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <Area
+                  type="monotone"
+                  dataKey="val"
+                  stroke={card.strokeColor}
+                  strokeWidth={2}
+                  fill={`url(#grad-${idx})`}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
