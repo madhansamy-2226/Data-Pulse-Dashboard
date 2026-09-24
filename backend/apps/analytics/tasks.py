@@ -1,6 +1,7 @@
 import os
 import csv
 import logging
+import re
 from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation
 from celery import shared_task
@@ -19,15 +20,23 @@ from .pdf_generator import SalesPulsePDFReport
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 2000
+BATCH_SIZE = 1000
 MAX_ERROR_LOGS_SAVED = 500
 
 def parse_date_safely(date_str: str) -> date:
-    """Parses date string with support for ISO (YYYY-MM-DD), MM/DD/YYYY, and DD-MM-YYYY."""
+    """Parses date string with support for 4-digit years, ISO formats, and standard regional date patterns."""
     if not date_str:
-        raise ValueError("Date field is empty")
+        return timezone.now().date()
     
-    clean_str = date_str.strip()
+    clean_str = str(date_str).strip()
+    
+    # 4-digit year like 2025 or 2024
+    if clean_str.isdigit() and len(clean_str) == 4:
+        try:
+            return date(int(clean_str), 1, 1)
+        except ValueError:
+            pass
+
     formats = [
         "%Y-%m-%d",
         "%m/%d/%Y",
@@ -35,23 +44,53 @@ def parse_date_safely(date_str: str) -> date:
         "%Y/%m/%d",
         "%d-%m-%Y",
         "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%SZ"
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%b %d, %Y",
+        "%B %d, %Y",
+        "%d %b %Y",
+        "%d %B %Y",
+        "%Y%m%d",
     ]
     for fmt in formats:
         try:
             return datetime.strptime(clean_str, fmt).date()
         except ValueError:
             continue
+            
+    # If explicitly invalid date string provided
     raise ValueError(f"Unrecognized date format: '{date_str}'")
+
+def parse_decimal_safely(val, default=Decimal('0.00')) -> Decimal:
+    """Parses decimal value safely, removing currencies, commas, and handling non-numeric strings."""
+    if val is None:
+        return default
+    clean = str(val).replace('$', '').replace('₹', '').replace('€', '').replace('£', '').replace(',', '').replace('%', '').strip()
+    if not clean or clean.lower() in ['c', 'null', 'none', 'na', 'n/a', '-', '.']:
+        return default
+    try:
+        return Decimal(str(round(float(clean), 2)))
+    except (ValueError, InvalidOperation):
+        return default
+
+def parse_int_safely(val, default=1) -> int:
+    """Parses integer value safely with default fallback."""
+    if val is None:
+        return default
+    clean = str(val).replace(',', '').strip()
+    try:
+        num = int(float(clean))
+        return num if num > 0 else default
+    except (ValueError, TypeError):
+        return default
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
 def import_csv_task(self, job_id: str):
     """
-    Asynchronously processes a CSV upload:
-    - Validates columns and data types per row
-    - Logs row-level errors
-    - Bulk inserts valid rows in chunks
-    - Reports real-time progress
+    Universal CSV ETL Pipeline:
+    - Parses sales, orders, surveys, financial, and generic tabular CSV datasets
+    - Intelligently maps columns with flexible fallbacks
+    - Bulk inserts rows in 1000-row chunks
+    - Reports live progress percentage
     - Invalidates user analytics cache
     """
     try:
@@ -62,9 +101,9 @@ def import_csv_task(self, job_id: str):
 
     job.status = ImportJob.JobStatus.PROCESSING
     job.started_at = timezone.now()
-    job.progress_percentage = 5
+    job.progress_percentage = 10
     job.save(update_fields=['status', 'started_at', 'progress_percentage'])
-    set_job_progress(job_id, 5, 'PROCESSING', 0, 0, 0)
+    set_job_progress(job_id, 10, 'PROCESSING', 0, 0, 0)
 
     file_path = job.file_path
     if not os.path.exists(file_path):
@@ -86,7 +125,7 @@ def import_csv_task(self, job_id: str):
 
     # Create Dataset record if not already linked
     if not job.dataset:
-        dataset_name = os.path.splitext(os.path.basename(job.file_name))[0].replace('_', ' ').title()
+        dataset_name = os.path.splitext(os.path.basename(job.file_name))[0].replace('_', ' ').replace('-', ' ').title()
         dataset = Dataset.objects.create(
             user=job.user,
             name=dataset_name,
@@ -110,58 +149,88 @@ def import_csv_task(self, job_id: str):
         with open(file_path, 'r', encoding='utf-8-sig', errors='replace') as csvfile:
             reader = csv.DictReader(csvfile)
             
-            # Normalize fieldnames to lowercase stripped
             if not reader.fieldnames:
                 raise ValueError("CSV header is empty or missing.")
             
-            header_map = {name.strip().lower().replace(' ', '_'): name for name in reader.fieldnames}
-            
+            # Map normalized column keys
+            header_map = {name.strip().lower().replace(' ', '_').replace('-', '_'): name for name in reader.fieldnames}
+
+            # Find matching column helper
+            def find_col_val(row_dict, candidate_keys, default=''):
+                for key in candidate_keys:
+                    normalized = key.lower().replace(' ', '_').replace('-', '_')
+                    if normalized in header_map:
+                        raw_col = header_map[normalized]
+                        if raw_col in row_dict and row_dict[raw_col] is not None:
+                            val = str(row_dict[raw_col]).strip()
+                            if val:
+                                return val
+                return default
+
             for row_idx, row in enumerate(reader, start=2): # line 2 is first data row
                 processed_count += 1
-                
-                # Helper to fetch by normalized key
-                def get_val(key, default=''):
-                    raw_key = header_map.get(key)
-                    if raw_key and raw_key in row:
-                        return row[raw_key].strip()
-                    return default
 
                 try:
-                    order_id = get_val('order_id') or get_val('id') or f"ORD-{row_idx}"
-                    raw_date = get_val('date') or get_val('order_date') or get_val('transaction_date')
-                    product_name = get_val('product_name') or get_val('product') or get_val('item')
-                    category = get_val('category') or get_val('product_category') or 'General'
-                    region = get_val('region') or get_val('country') or get_val('location') or 'Global'
-                    raw_qty = get_val('quantity') or get_val('qty') or '1'
-                    raw_price = get_val('unit_price') or get_val('price') or get_val('amount')
-                    raw_discount = get_val('discount_percent') or get_val('discount') or '0'
-                    raw_rev = get_val('total_revenue') or get_val('revenue') or get_val('total')
-                    cust_name = get_val('customer_name') or get_val('customer') or ''
-                    cust_email = get_val('customer_email') or get_val('email') or ''
-                    status_val = get_val('status') or 'Completed'
+                    # 1. Date column matching
+                    raw_date = find_col_val(row, [
+                        'date', 'order_date', 'transaction_date', 'year', 'period', 'time',
+                        'timestamp', 'created_at', 'month', 'dt'
+                    ])
+                    parsed_date = parse_date_safely(raw_date) if raw_date else timezone.now().date()
 
-                    if not raw_date:
-                        raise ValueError("Missing 'date' column or value")
+                    # 2. Identifier matching
+                    order_id = find_col_val(row, [
+                        'order_id', 'id', 'order_number', 'code', 'variable_code',
+                        'industry_code_nzsioc', 'industry_code', 'reference', 'index'
+                    ], default=f"REC-{row_idx:06d}")
+
+                    # 3. Product / Metric / Title matching
+                    product_name = find_col_val(row, [
+                        'product_name', 'product', 'item', 'variable_name', 'industry_name_nzsioc',
+                        'industry_name', 'name', 'title', 'description', 'metric', 'label'
+                    ])
                     if not product_name:
-                        raise ValueError("Missing 'product_name' value")
-                    if not raw_price:
-                        raise ValueError("Missing 'unit_price' value")
+                        first_non_empty = next((str(v).strip() for v in row.values() if v and str(v).strip()), None)
+                        product_name = first_non_empty or f"Item {row_idx}"
 
-                    parsed_date = parse_date_safely(raw_date)
-                    qty = int(float(raw_qty))
-                    if qty <= 0:
-                        raise ValueError(f"Quantity must be positive (got {qty})")
-                    
-                    price = Decimal(str(round(float(raw_price.replace('$', '').replace(',', '')), 2)))
-                    discount = Decimal(str(round(float(raw_discount.replace('%', '')), 2))) if raw_discount else Decimal('0.00')
+                    # 4. Category / Sector matching
+                    category = find_col_val(row, [
+                        'category', 'product_category', 'variable_category', 'industry_aggregation_nzsioc',
+                        'industry', 'type', 'group', 'department', 'sector', 'class'
+                    ], default='General')
+
+                    # 5. Region / Location matching
+                    region = find_col_val(row, [
+                        'region', 'country', 'location', 'state', 'city', 'market',
+                        'area', 'zone', 'territory'
+                    ], default='Global')
+
+                    # 6. Quantity matching
+                    raw_qty = find_col_val(row, ['quantity', 'qty', 'units', 'count', 'volume', 'amount_units'], default='1')
+                    qty = parse_int_safely(raw_qty, default=1)
+
+                    # 7. Price / Revenue / Value matching
+                    raw_price = find_col_val(row, ['unit_price', 'price', 'rate', 'cost'])
+                    raw_rev = find_col_val(row, ['total_revenue', 'revenue', 'value', 'amount', 'total', 'sales', 'val'])
+                    raw_discount = find_col_val(row, ['discount_percent', 'discount'], default='0')
+
+                    discount = parse_decimal_safely(raw_discount, default=Decimal('0.00'))
 
                     if raw_rev:
-                        rev = Decimal(str(round(float(raw_rev.replace('$', '').replace(',', '')), 2)))
-                    else:
+                        rev = parse_decimal_safely(raw_rev, default=Decimal('0.00'))
+                        price = parse_decimal_safely(raw_price, default=rev / Decimal(qty) if qty > 0 else rev)
+                    elif raw_price:
+                        price = parse_decimal_safely(raw_price, default=Decimal('10.00'))
                         rev = price * Decimal(qty) * (Decimal('1.00') - (discount / Decimal('100.00')))
                         rev = round(rev, 2)
+                    else:
+                        price = Decimal('10.00')
+                        rev = price * Decimal(qty)
 
-                    # Validate status choice
+                    cust_name = find_col_val(row, ['customer_name', 'customer', 'client', 'buyer'], default='')
+                    cust_email = find_col_val(row, ['customer_email', 'email', 'contact'], default='')
+                    status_val = find_col_val(row, ['status', 'order_status', 'state'], default='Completed')
+
                     valid_statuses = [s.value for s in SalesRecord.Status]
                     matching_status = next((s for s in valid_statuses if s.lower() == status_val.lower()), SalesRecord.Status.COMPLETED)
 
@@ -193,13 +262,12 @@ def import_csv_task(self, job_id: str):
                             "error": str(row_err)
                         })
 
-                # Batch insertion
+                # Batch insertion & progress notification
                 if len(records_to_insert) >= BATCH_SIZE:
                     SalesRecord.objects.bulk_create(records_to_insert, batch_size=BATCH_SIZE)
                     records_to_insert = []
                     
-                    # Update progress
-                    pct = min(int((processed_count / total_lines) * 90) + 5, 95)
+                    pct = min(int((processed_count / total_lines) * 90) + 10, 95)
                     job.progress_percentage = pct
                     job.processed_rows = processed_count
                     job.failed_rows = failed_count
@@ -226,8 +294,6 @@ def import_csv_task(self, job_id: str):
         job.save()
 
         set_job_progress(job_id, 100, 'COMPLETED', processed_count, total_lines, failed_count)
-
-        # Invalidate Redis cached queries for this user
         invalidate_user_analytics_cache(job.user.id)
         logger.info(f"Successfully processed CSV ImportJob {job_id} ({processed_count} rows, {failed_count} failed).")
 
