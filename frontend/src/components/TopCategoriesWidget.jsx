@@ -26,8 +26,8 @@ export const TopCategoriesWidget = ({ categories = [], loading }) => {
     : fallbackCategories;
 
   return (
-    <div className="bg-[#131926] border border-[#1e2638] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-      <h3 className="text-base font-bold text-white tracking-tight mb-5">
+    <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col justify-between">
+      <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight mb-4 sm:mb-5">
         Top categories
       </h3>
 
@@ -35,24 +35,24 @@ export const TopCategoriesWidget = ({ categories = [], loading }) => {
         {loading ? (
           Array.from({ length: 5 }).map((_, idx) => (
             <div key={idx} className="space-y-2 animate-pulse">
-              <div className="h-3.5 bg-slate-800 rounded w-1/3"></div>
-              <div className="h-2.5 bg-slate-800 rounded-full w-full"></div>
+              <div className="h-3.5 bg-slate-100 rounded w-1/3"></div>
+              <div className="h-2.5 bg-slate-100 rounded-full w-full"></div>
             </div>
           ))
         ) : (
           list.map((item, idx) => (
             <div key={idx} className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-200">{item.category}</span>
-                <span className="text-slate-400 font-medium font-mono">
+                <span className="font-semibold text-slate-800">{item.category}</span>
+                <span className="text-slate-500 font-medium font-mono text-[11px] sm:text-xs">
                   {item.revenue} · {item.percentage}%
                 </span>
               </div>
 
-              {/* Blue Bar */}
-              <div className="w-full bg-[#0d121d] h-2.5 rounded-full overflow-hidden">
+              {/* Progress bar with light track */}
+              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
                 <div
-                  className="bg-[#3b82f6] h-full rounded-full transition-all duration-500"
+                  className="bg-[#2563eb] h-full rounded-full transition-all duration-500"
                   style={{ width: `${item.percentage}%` }}
                 ></div>
               </div>

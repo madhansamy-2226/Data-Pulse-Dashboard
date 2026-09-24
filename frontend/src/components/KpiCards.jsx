@@ -24,7 +24,8 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
 
   const cards = [
     {
-      title: 'Total revenue',
+      titleDesktop: 'Total revenue',
+      titleMobile: 'Revenue',
       value: summary ? formatCurrency(summary.total_revenue) : '₹8.6L',
       badge: '+12%',
       badgeType: 'positive',
@@ -33,7 +34,8 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
       fillColor: '#10b981',
     },
     {
-      title: 'Total orders',
+      titleDesktop: 'Total orders',
+      titleMobile: 'Orders',
       value: summary?.total_orders ? summary.total_orders.toLocaleString() : '2,940',
       badge: '+8%',
       badgeType: 'positive',
@@ -42,7 +44,8 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
       fillColor: '#10b981',
     },
     {
-      title: 'Avg order value',
+      titleDesktop: 'Avg order value',
+      titleMobile: 'Avg order',
       value: summary?.average_order_value ? `₹${Math.round(parseFloat(summary.average_order_value))}` : '₹293',
       badge: '-3%',
       badgeType: 'negative',
@@ -51,7 +54,8 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
       fillColor: '#f43f5e',
     },
     {
-      title: 'Import success',
+      titleDesktop: 'Import success',
+      titleMobile: 'Import success',
       value: `${successRate}%`,
       badge: `${successfulImports} of ${totalImports}`,
       badgeType: 'neutral-green',
@@ -62,38 +66,50 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
       {cards.map((card, idx) => (
         <div
           key={idx}
-          className="bg-[#131926] border border-[#1e2638] rounded-2xl p-5 flex items-center justify-between relative overflow-hidden shadow-sm hover:border-[#2a364f] transition-all"
+          className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm hover:shadow transition-all"
         >
           <div>
-            <span className="text-xs font-medium text-slate-400 block mb-1.5">{card.title}</span>
+            <span className="text-[11px] sm:text-xs font-medium text-slate-500 block mb-1">
+              <span className="sm:hidden">{card.titleMobile}</span>
+              <span className="hidden sm:inline">{card.titleDesktop}</span>
+            </span>
+
             {loading ? (
-              <div className="h-7 w-20 bg-slate-800 rounded animate-pulse mb-2"></div>
+              <div className="h-6 w-16 bg-slate-100 rounded animate-pulse mb-1.5"></div>
             ) : (
-              <h3 className="text-2xl font-bold text-white tracking-tight mb-1.5">{card.value}</h3>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-1">
+                {card.value}
+              </h3>
             )}
 
             <div>
               {card.badgeType === 'positive' ? (
-                <span className="text-xs font-semibold text-[#10b981]">{card.badge}</span>
+                <span className="text-[11px] sm:text-xs font-semibold text-[#10b981]">
+                  {card.badge}
+                </span>
               ) : card.badgeType === 'negative' ? (
-                <span className="text-xs font-semibold text-[#f43f5e]">{card.badge}</span>
+                <span className="text-[11px] sm:text-xs font-semibold text-[#f43f5e]">
+                  {card.badge}
+                </span>
               ) : (
-                <span className="text-xs font-medium text-[#10b981]">{card.badge}</span>
+                <span className="text-[11px] sm:text-xs font-semibold text-[#10b981]">
+                  {card.badge}
+                </span>
               )}
             </div>
           </div>
 
-          {/* Sparkline chart */}
-          <div className="w-24 h-12">
+          {/* Sparkline chart (Hidden on very compact mobile or displayed neatly) */}
+          <div className="hidden sm:block w-20 sm:w-24 h-10 sm:h-12 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={card.sparklineData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id={`grad-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={card.fillColor} stopOpacity={0.3} />
+                  <linearGradient id={`lightGrad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={card.fillColor} stopOpacity={0.25} />
                     <stop offset="100%" stopColor={card.fillColor} stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
@@ -102,7 +118,7 @@ export const KpiCards = ({ summary, loading, importJobs = [] }) => {
                   dataKey="val"
                   stroke={card.strokeColor}
                   strokeWidth={2}
-                  fill={`url(#grad-${idx})`}
+                  fill={`url(#lightGrad-${idx})`}
                   dot={false}
                 />
               </AreaChart>

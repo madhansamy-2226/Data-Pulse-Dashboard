@@ -29,13 +29,13 @@ const dummyTrends = [
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[#0f141e] border border-[#1e2638] rounded-xl p-3 shadow-2xl backdrop-blur-md">
-        <p className="text-xs font-semibold text-slate-400 mb-1">{label}</p>
-        <p className="text-xs font-bold text-[#38bdf8]">
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xl">
+        <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
+        <p className="text-xs font-bold text-[#2563eb]">
           This period: ₹{payload[0]?.value?.toLocaleString()}
         </p>
         {payload[1] && (
-          <p className="text-xs font-medium text-slate-400 mt-0.5">
+          <p className="text-xs font-medium text-slate-500 mt-0.5">
             Previous: ₹{payload[1]?.value?.toLocaleString()}
           </p>
         )}
@@ -46,7 +46,6 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export const RevenueComparisonChart = ({ data = [], loading }) => {
-  // Format real data if available, or fall back to smooth chart data
   const chartData = data.length >= 4 ? data.map((d, i) => {
     const rev = typeof d.revenue === 'number' ? d.revenue : parseFloat(d.revenue) || 40000;
     const prevRev = Math.round(rev * (0.85 + ((i % 3) * 0.05)));
@@ -69,52 +68,53 @@ export const RevenueComparisonChart = ({ data = [], loading }) => {
   };
 
   return (
-    <div className="bg-[#131926] border border-[#1e2638] rounded-2xl p-6 shadow-sm">
+    <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-6 shadow-sm">
       {/* Chart Header & Legend */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
-        <h3 className="text-base font-bold text-white tracking-tight">
-          Revenue: this period vs previous
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 sm:mb-6">
+        <h3 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
+          <span className="hidden sm:inline">Revenue: this period vs previous</span>
+          <span className="sm:hidden">This period vs previous</span>
         </h3>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+        <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 bg-[#3b82f6] rounded-full"></span>
-            <span className="text-slate-300">This period</span>
+            <span className="w-3 h-0.5 bg-[#2563eb] rounded-full"></span>
+            <span className="text-slate-700 font-semibold">This period</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 border-b-2 border-dashed border-slate-500"></span>
+            <span className="w-3 h-0.5 border-b-2 border-dashed border-slate-400"></span>
             <span>Previous</span>
           </div>
         </div>
       </div>
 
       {/* Chart Canvas */}
-      <div className="h-64 w-full">
+      <div className="h-56 sm:h-64 w-full">
         {loading ? (
-          <div className="h-full w-full flex items-center justify-center bg-slate-900/30 rounded-xl">
-            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="h-full w-full flex items-center justify-center bg-slate-50 rounded-xl">
+            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <defs>
-                <linearGradient id="blueAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1e40af" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#1e3a8a" stopOpacity={0.05} />
+                <linearGradient id="lightBlueAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#dbeafe" stopOpacity={0.6} />
+                  <stop offset="100%" stopColor="#eff6ff" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2638" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis
                 dataKey="date"
-                stroke="#64748b"
-                tick={{ fontSize: 11 }}
+                stroke="#94a3b8"
+                tick={{ fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                stroke="#64748b"
-                tick={{ fontSize: 11 }}
+                stroke="#94a3b8"
+                tick={{ fontSize: 10 }}
                 tickFormatter={formatYAxis}
                 axisLine={false}
                 tickLine={false}
@@ -123,14 +123,14 @@ export const RevenueComparisonChart = ({ data = [], loading }) => {
               <Area
                 type="monotone"
                 dataKey="this_period"
-                stroke="#3b82f6"
+                stroke="#2563eb"
                 strokeWidth={2.5}
-                fill="url(#blueAreaGrad)"
+                fill="url(#lightBlueAreaGrad)"
               />
               <Line
                 type="monotone"
                 dataKey="previous"
-                stroke="#64748b"
+                stroke="#94a3b8"
                 strokeWidth={2}
                 strokeDasharray="4 4"
                 dot={false}

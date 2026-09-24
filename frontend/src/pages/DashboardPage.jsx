@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '../components/Sidebar';
+import { MobileNav } from '../components/MobileNav';
 import { HeaderBar } from '../components/HeaderBar';
 import { KpiCards } from '../components/KpiCards';
 import { RevenueComparisonChart } from '../components/RevenueComparisonChart';
@@ -114,7 +115,6 @@ export const DashboardPage = () => {
   const handleDownloadLatestReport = async () => {
     try {
       setIsExporting(true);
-      // Trigger a fresh PDF compilation and download
       await handleExportPDF();
     } finally {
       setIsExporting(false);
@@ -122,8 +122,8 @@ export const DashboardPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f17] text-slate-100 flex flex-col md:flex-row">
-      {/* Sidebar Navigation */}
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col md:flex-row pb-16 md:pb-0">
+      {/* Laptop Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
         onSelectTab={(tab) => {
@@ -133,9 +133,9 @@ export const DashboardPage = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col justify-between space-y-6">
-        <div className="space-y-6">
-          {/* Top Header Bar with Filter Pills & Action Buttons */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 flex flex-col justify-between space-y-5">
+        <div className="space-y-5">
+          {/* Header Bar with Filters */}
           <HeaderBar
             title={activeTab === 'overview' ? 'Overview' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
             filters={filters}
@@ -147,7 +147,7 @@ export const DashboardPage = () => {
             exportSuccess={exportSuccess}
           />
 
-          {/* 4 KPI Summary Cards */}
+          {/* 4 KPI Summary Cards (2x2 on mobile, 4-col on laptop) */}
           <KpiCards
             summary={summary}
             loading={loading}
@@ -155,7 +155,7 @@ export const DashboardPage = () => {
           />
 
           {/* Middle Row: Revenue Comparison Chart & Top Categories */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             <div className="lg:col-span-7">
               <RevenueComparisonChart data={trends} loading={loading} />
             </div>
@@ -165,7 +165,7 @@ export const DashboardPage = () => {
           </div>
 
           {/* Bottom Row: Recent Imports & Scheduled Reports */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             <div className="lg:col-span-7">
               <RecentImportsWidget
                 importJobs={importJobs}
@@ -182,12 +182,20 @@ export const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Subtle Footer Note */}
-        <div className="pt-4 border-t border-[#1a2234] flex items-center justify-between text-[11px] text-slate-500">
-          <span>SalesPulse Analytics Engine v1.0.0</span>
-          <span>Sample data for illustration</span>
+        {/* Footer Text */}
+        <div className="pt-4 border-t border-slate-200/60 text-center sm:text-right text-[11px] text-slate-400">
+          <span>Same DataPulse app, responsive layout · sample data for illustration</span>
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileNav
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'imports') setIsUploadOpen(true);
+        }}
+      />
 
       {/* CSV File Upload Modal */}
       <FileUploadModal
