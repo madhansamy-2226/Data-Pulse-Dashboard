@@ -1,7 +1,6 @@
 # SalesPulse 📊
 ### High-Throughput Async CSV Analytics Platform & Executive Reporting Engine
 
-[![CI Pipeline](https://github.com/yourusername/salespulse/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/salespulse/actions)
 [![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django)](https://www.djangoproject.com/)
 [![DRF](https://img.shields.io/badge/DRF-3.15-red?logo=django)](https://www.django-rest-framework.org/)
 [![Celery](https://img.shields.io/badge/Celery-5.4-37814A?logo=celery)](https://docs.celeryq.dev/)
