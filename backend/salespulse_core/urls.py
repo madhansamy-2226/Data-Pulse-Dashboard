@@ -12,6 +12,24 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+def root_view(request):
+    return JsonResponse({
+        "status": "online",
+        "service": "SalesPulse Analytics API",
+        "version": "1.0.0",
+        "frontend_app": "http://localhost:5173",
+        "documentation": {
+            "swagger_ui": "/api/docs/",
+            "redoc": "/api/redoc/",
+            "openapi_schema": "/api/schema/"
+        },
+        "endpoints": {
+            "auth": "/api/auth/",
+            "analytics": "/api/analytics/",
+            "health": "/health/"
+        }
+    })
+
 def health_check(request):
     return JsonResponse({
         "status": "healthy",
@@ -20,6 +38,7 @@ def health_check(request):
     })
 
 urlpatterns = [
+    path('', root_view, name='root'),
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health-check'),
     

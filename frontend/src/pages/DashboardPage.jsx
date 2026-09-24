@@ -85,8 +85,19 @@ export const DashboardPage = () => {
         },
       });
 
-      const reportId = res.report.id;
+      const report = res.report || res;
+      const reportId = report.id;
 
+      // If backend generated PDF immediately
+      if (report.status === 'COMPLETED') {
+        setIsExporting(false);
+        setExportSuccess(true);
+        setTimeout(() => setExportSuccess(false), 4000);
+        await analyticsApi.downloadPDF(reportId, report.file_name || 'salespulse_report.pdf');
+        return;
+      }
+
+      // If queued asynchronously, poll for completion
       const pollInterval = setInterval(async () => {
         try {
           const statusRes = await analyticsApi.getReportStatus(reportId);
@@ -105,10 +116,10 @@ export const DashboardPage = () => {
           clearInterval(pollInterval);
           setIsExporting(false);
         }
-      }, 1500);
+      }, 1000);
     } catch (err) {
       setIsExporting(false);
-      alert('Failed to initiate PDF export.');
+      alert('Failed to initiate PDF export. Please try again.');
     }
   };
 

@@ -74,11 +74,22 @@ TEMPLATES = [
 WSGI_APPLICATION = 'salespulse_core.wsgi.application'
 ASGI_APPLICATION = 'salespulse_core.asgi.application'
 
-# Database Configuration (PostgreSQL with SQLite fallback)
-DB_ENGINE = os.getenv('DB_ENGINE', '')
-DB_NAME = os.getenv('DB_NAME', '')
+# Database Configuration (Supabase PostgreSQL / DATABASE_URL with SQLite fallback)
+DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
+DB_ENGINE = os.getenv('DB_ENGINE', '').strip()
+DB_NAME = os.getenv('DB_NAME', '').strip()
 
-if DB_ENGINE and DB_NAME:
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+            ssl_require=True if 'supabase' in DATABASE_URL or 'sslmode=require' in DATABASE_URL else False,
+        )
+    }
+elif DB_ENGINE and DB_NAME:
     DATABASES = {
         'default': {
             'ENGINE': DB_ENGINE,
@@ -90,7 +101,7 @@ if DB_ENGINE and DB_NAME:
         }
     }
 else:
-    # Zero-setup local SQLite fallback for beginners
+    # Zero-setup local SQLite fallback
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -187,7 +198,12 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_TASK_ALWAYS_EAGER = os.getenv('CELERY_ALWAYS_EAGER', 'False') == 'True' # Useful for test suite
 
 # CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True') == 'True'
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
+]
 CORS_ALLOWED_ORIGINS = [
     origin.strip() for origin in os.getenv(
         'CORS_ALLOWED_ORIGINS',

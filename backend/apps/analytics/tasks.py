@@ -83,8 +83,8 @@ def parse_int_safely(val, default=1) -> int:
     except (ValueError, TypeError):
         return default
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=10)
-def import_csv_task(self, job_id: str):
+@shared_task(max_retries=3, default_retry_delay=10)
+def import_csv_task(job_id: str):
     """
     Universal CSV ETL Pipeline:
     - Parses sales, orders, surveys, financial, and generic tabular CSV datasets
@@ -306,8 +306,8 @@ def import_csv_task(self, job_id: str):
         job.save()
         set_job_progress(job_id, job.progress_percentage, 'FAILED', processed_count, total_lines, failed_count)
 
-@shared_task(bind=True)
-def generate_pdf_report_task(self, report_job_id: str):
+@shared_task
+def generate_pdf_report_task(report_job_id: str):
     """
     Compiles sales analytics aggregates into a downloadable PDF report using ReportLab.
     """

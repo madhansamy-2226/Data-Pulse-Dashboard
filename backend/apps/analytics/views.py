@@ -105,19 +105,21 @@ class CSVUploadView(APIView):
             progress_percentage=0,
         )
 
-        # Trigger Celery async task with immediate fallback if broker is offline
+        # Process CSV immediately so the user never gets stuck waiting on an offline worker queue
         try:
-            import_csv_task.delay(str(job.id))
-        except Exception:
             import_csv_task(str(job.id))
             job.refresh_from_db()
+        except Exception as e:
+            job.status = ImportJob.JobStatus.FAILED
+            job.error_message = str(e)
+            job.save()
 
         return Response(
             {
-                "message": "CSV file uploaded successfully. Ingestion job initiated.",
+                "message": "CSV file processed successfully." if job.status == ImportJob.JobStatus.COMPLETED else "CSV ingestion initiated.",
                 "job": ImportJobSerializer(job).data
             },
-            status=status.HTTP_202_ACCEPTED
+            status=status.HTTP_200_OK if job.status == ImportJob.JobStatus.COMPLETED else status.HTTP_202_ACCEPTED
         )
 
 class JobStatusView(APIView):
@@ -359,7 +361,7 @@ class FilterOptionsView(APIView):
 
 class ExportPDFView(APIView):
     """
-    Initiates asynchronous PDF report compilation via Celery worker.
+    Initiates PDF report compilation and returns status.
     """
     permission_classes = [IsAuthenticated]
 
@@ -382,18 +384,21 @@ class ExportPDFView(APIView):
             status=ReportJob.Status.PENDING,
         )
 
+        # Generate report immediately so the user is never stuck waiting
         try:
-            generate_pdf_report_task.delay(str(report_job.id))
-        except Exception:
             generate_pdf_report_task(str(report_job.id))
             report_job.refresh_from_db()
+        except Exception as e:
+            report_job.status = ReportJob.Status.FAILED
+            report_job.error_message = str(e)
+            report_job.save()
 
         return Response(
             {
-                "message": "PDF Report generation initiated.",
+                "message": "PDF Report generated successfully." if report_job.status == ReportJob.Status.COMPLETED else "PDF Generation initiated.",
                 "report": ReportJobSerializer(report_job).data
             },
-            status=status.HTTP_202_ACCEPTED
+            status=status.HTTP_200_OK if report_job.status == ReportJob.Status.COMPLETED else status.HTTP_202_ACCEPTED
         )
 
 class ReportStatusView(APIView):

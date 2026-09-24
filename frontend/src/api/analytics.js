@@ -78,12 +78,14 @@ export const analyticsApi = {
     const response = await apiClient.get(`/api/analytics/reports/${reportId}/download/`, {
       responseType: 'blob',
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
-    link.remove();
+    link.parentNode.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   },
 };
