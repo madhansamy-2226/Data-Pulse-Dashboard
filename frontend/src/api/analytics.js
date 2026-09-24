@@ -5,7 +5,7 @@ export const analyticsApi = {
   uploadCSV: async (formData) => {
     const response = await apiClient.post('/api/analytics/upload/', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
     return response.data;

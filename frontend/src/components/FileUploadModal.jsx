@@ -102,7 +102,21 @@ export const FileUploadModal = ({ isOpen, onClose, onUploadComplete }) => {
 
     } catch (err) {
       setUploading(false);
-      setErrorMsg(err.response?.data?.file?.[0] || 'Upload failed. Please check network.');
+      let msg = 'Upload failed. Please check network or file format.';
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') msg = data;
+        else if (data.detail) msg = data.detail;
+        else if (data.file && Array.isArray(data.file)) msg = data.file[0];
+        else if (data.error) msg = data.error;
+        else {
+          const firstVal = Object.values(data)[0];
+          msg = Array.isArray(firstVal) ? firstVal[0] : String(firstVal);
+        }
+      } else if (err.message) {
+        msg = err.message;
+      }
+      setErrorMsg(String(msg));
     }
   };
 
