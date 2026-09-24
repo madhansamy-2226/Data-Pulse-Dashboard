@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: salespulse_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-salespulse_db}
+      POSTGRES_USER: ${DB_USER:-salespulse_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-salespulse_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-salespulse_user} -d ${DB_NAME:-salespulse_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis Cache & Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: salespulse_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Django Web API (Gunicorn)
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: salespulse_web
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn salespulse_core.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-salespulse-secret-key-change-in-production}
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-salespulse_db}
+      - DB_USER=${DB_USER:-salespulse_user}
+      - DB_PASSWORD=${DB_PASSWORD:-salespulse_password}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 4. Celery Async Task Worker (CSV Ingestion & PDF Generation)
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: salespulse_celery_worker
+    restart: unless-stopped
+    command: celery -A salespulse_core worker --loglevel=info --concurrency=4
+    volumes:
+      - ./backend:/app
+      - media_volume:/app/media
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-salespulse-secret-key-change-in-production}
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-salespulse_db}
+      - DB_USER=${DB_USER:-salespulse_user}
+      - DB_PASSWORD=${DB_PASSWORD:-salespulse_password}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # 5. Celery Beat Scheduler (Periodic Weekly Digest & Cleanup)
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: salespulse_celery_beat
+    restart: unless-stopped
+    command: celery -A salespulse_core beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-salespulse-secret-key-change-in-production}
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-salespulse_db}
+      - DB_USER=${DB_USER:-salespulse_user}
+      - DB_PASSWORD=${DB_PASSWORD:-salespulse_password}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      web:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  # 6. React Frontend (Vite + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: salespulse_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
