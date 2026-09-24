@@ -68,19 +68,15 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Ambient background glows */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="w-full max-w-md relative z-10">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
         {/* Brand header */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-xl shadow-blue-500/20 mx-auto mb-3">
-            <BarChart3 className="w-8 h-8 text-white" />
+        <div className="text-center mb-6">
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-3 shadow-md">
+            <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Sales<span className="text-blue-500">Pulse</span></h1>
-          <p className="text-xs text-slate-400 mt-1">High-Throughput CSV Analytics Platform</p>
+          <p className="text-xs text-slate-400 mt-1">CSV Analytics & Reporting Dashboard</p>
         </div>
 
         <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md">

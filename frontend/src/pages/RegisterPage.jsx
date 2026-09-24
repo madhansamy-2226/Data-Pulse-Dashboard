@@ -51,16 +51,14 @@ export const RegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-      <div className="w-full max-w-md relative z-10">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-xl shadow-blue-500/20 mx-auto mb-2">
+          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mx-auto mb-2 shadow-md">
             <BarChart3 className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold text-white">Create your SalesPulse account</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Start ingesting and visualizing CSV data</p>
+          <p className="text-xs text-slate-400 mt-0.5">Start uploading and analyzing CSV sales data</p>
         </div>
 
         <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
