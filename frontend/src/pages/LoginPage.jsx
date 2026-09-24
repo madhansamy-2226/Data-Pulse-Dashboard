@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart3, Lock, Mail, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { authApi } from '../api/auth';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -41,12 +42,14 @@ export const LoginPage = () => {
       demoUser = 'viewerdemo';
     }
 
+    setEmail(demoEmail);
+    setPassword(demoPass);
+
     try {
       await login(demoEmail, demoPass);
       navigate('/');
-    } catch {
+    } catch (err) {
       try {
-        const { authApi } = await import('../api/auth');
         await authApi.register({
           username: demoUser,
           email: demoEmail,
@@ -58,7 +61,7 @@ export const LoginPage = () => {
         await login(demoEmail, demoPass);
         navigate('/');
       } catch (regErr) {
-        setError('Could not sign in with demo account. Please create an account.');
+        setError(regErr.response?.data?.detail || 'Could not sign in with demo account. Please try manual sign in.');
       }
     } finally {
       setLoading(false);
